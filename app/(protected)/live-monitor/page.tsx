@@ -9,28 +9,60 @@ import { Button } from '@/components/ui/button'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { usePostureAnalyze } from '@/hooks/use-api'
+import { useToast } from '@/components/ui/use-toast'
 
 export default function LiveMonitorPage() {
   const [isMonitoring, setIsMonitoring] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [lastAnalysis, setLastAnalysis] = useState<any>(null)
   const { analyze } = usePostureAnalyze()
+  const { toast } = useToast()
 
   const handleStartMonitoring = async () => {
-    setIsMonitoring(true)
+    setIsLoading(true)
+    console.log('[v0] Starting monitoring...')
     try {
       const result = await analyze()
-      setLastAnalysis(result.data)
+      console.log('[v0] Analysis result:', result)
+      
+      if (result.success && result.data) {
+        setIsMonitoring(true)
+        setLastAnalysis(result.data)
+        toast({
+          title: 'Monitoring Started',
+          description: `Posture Score: ${result.data.overallScore}`,
+        })
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to start monitoring. Check backend connection.',
+          variant: 'destructive',
+        })
+      }
     } catch (error) {
-      console.error('Analysis failed:', error)
+      console.error('[v0] Analysis failed:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to connect to analysis service',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleStopMonitoring = () => {
     setIsMonitoring(false)
+    toast({
+      title: 'Monitoring Stopped',
+    })
   }
 
   const handleReset = () => {
     setLastAnalysis(null)
+    toast({
+      title: 'Analysis Reset',
+    })
   }
 
   return (
@@ -52,9 +84,13 @@ export default function LiveMonitorPage() {
             <StatusBadge status={isMonitoring ? 'monitoring' : 'idle'} />
             <div className="flex gap-2">
               {!isMonitoring ? (
-                <Button onClick={handleStartMonitoring} className="gap-2">
+                <Button 
+                  onClick={handleStartMonitoring} 
+                  disabled={isLoading}
+                  className="gap-2"
+                >
                   <Play className="w-4 h-4" />
-                  Start Monitoring
+                  {isLoading ? 'Analyzing...' : 'Start Monitoring'}
                 </Button>
               ) : (
                 <Button onClick={handleStopMonitoring} variant="outline" className="gap-2">
@@ -62,7 +98,7 @@ export default function LiveMonitorPage() {
                   Stop
                 </Button>
               )}
-              <Button onClick={handleReset} variant="outline">
+              <Button onClick={handleReset} variant="outline" disabled={!lastAnalysis}>
                 <RotateCcw className="w-4 h-4" />
               </Button>
             </div>
